@@ -9,3 +9,5 @@ author = "Mihai Anca <mihai.anca13@gmail.com>"
 [dependencies]
 bracket-lib = "~0.8.1"
 legion = "=0.3.1"
+serde = "=1.0.144"
+ron = "=0.8.0"

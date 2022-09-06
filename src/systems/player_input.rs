@@ -8,6 +8,8 @@ use crate::prelude::*;
 #[read_component(Item)]
 #[read_component(Carried)]
 #[read_component(Name)]
+#[read_component(Weapon)]
+#[read_component(Consumable)]
 pub fn player_input(
     ecs: &mut SubWorld,
     commands: &mut CommandBuffer,
@@ -34,12 +36,26 @@ pub fn player_input(
                 items.iter(ecs)
                     .filter(|(_entity, _item, &item_pos, _name)| item_pos == player_pos)
                     .for_each(|(entity, _item, _item_pos, name)| {
+                        // one item of a type allowed at a time
                         if !carried_items.contains(&name.0) {
                             commands.remove_component::<Point>(*entity);
                             commands.add_component(*entity, Carried(player));
                         }
+
+                        // remove other weapons
+                        if let Ok(e) = ecs.entry_ref(*entity) {
+                            if e.get_component::<Weapon>().is_ok() {
+                                <(Entity, &Carried, &Weapon)>::query()
+                                    .iter(ecs)
+                                    .filter(|(_, c, _)| c.0 == player)
+                                    .for_each(|(e, c, _w)| {
+                                        commands.remove(*e);
+                                    })
+                            }
+                        }
                     }
                     );
+
                 Point::new(0, 0)
             },
             VirtualKeyCode::Key1 => use_item(0, ecs, commands),
@@ -59,7 +75,6 @@ pub fn player_input(
             .find_map(|(entity, pos)| Some((*entity, *pos + delta)) )
             .unwrap();
 
-        let mut did_something = false;
         if delta.x !=0 || delta.y != 0 {
             let mut enemies = <(Entity, &Point)>::query().filter(component::<Enemy>());
             let mut hit_something = false;
@@ -70,7 +85,6 @@ pub fn player_input(
                 })
                 .for_each(|(entity, _) | {
                     hit_something = true;
-                    did_something = true;
 
                     commands
                         .push(((), WantsToAttack{
@@ -79,7 +93,6 @@ pub fn player_input(
                         }));
                 });
             if !hit_something {
-                did_something = true;
                 commands
                     .push(((), WantsToMove{
                         entity: player_entity,
@@ -88,15 +101,6 @@ pub fn player_input(
             }
         }
 
-        // if !did_something {
-        //     if let Ok(mut health) = ecs
-        //         .entry_mut(player_entity)
-        //         .unwrap()
-        //         .get_component_mut::<Health>()
-        //     {
-        //         health.current = i32::min(health.max, health.current+1);
-        //     }
-        // }
         *turn_state = TurnState::PlayerTurn;
     }
 }
@@ -108,12 +112,12 @@ fn use_item(n: usize, ecs: &mut SubWorld, commands: &mut CommandBuffer)
         .find_map(|(entity, _player)| Some(*entity))
         .unwrap();
 
-    let item_entity = <(Entity, &Item, &Carried)>::query()
+    let item_entity = <(Entity, &Item, &Carried, &Consumable)>::query()
         .iter(ecs)
-        .filter(|(_, _, carried)| carried.0 == player_entity)
+        .filter(|(_, _, carried, _)| carried.0 == player_entity)
         .enumerate()
-        .filter(|(item_count, (_, _, _))| *item_count == n)
-        .find_map(|(_, (item_entity, _, _))| Some(*item_entity));
+        .filter(|(item_count, (_, _, _, _))| *item_count == n)
+        .find_map(|(_, (item_entity, _, _, _))| Some(*item_entity));
 
     if let Some(item_entity) = item_entity {
         commands

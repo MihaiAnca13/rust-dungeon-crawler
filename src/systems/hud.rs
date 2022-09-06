@@ -5,6 +5,7 @@ use crate::prelude::*;
 #[read_component(Player)]
 #[read_component(Item)]
 #[read_component(Carried)]
+#[read_component(Consumable)]
 #[read_component(Name)]
 pub fn hud(ecs: &SubWorld) {
     let mut health_query = <&Health>::query().filter(component::<Player>());
@@ -44,12 +45,12 @@ pub fn hud(ecs: &SubWorld) {
         ColorPair::new(YELLOW, BLACK)
     );
 
-    let mut item_query = <(&Item, &Name, &Carried)>::query();
+    let mut item_query = <(&Item, &Name, &Carried, &Consumable)>::query();
     let mut y = 3;
     item_query
         .iter(ecs)
-        .filter(|(_, _, carried)| carried.0 == player)
-        .for_each(|(_, name, _)| {
+        .filter(|(_, _, carried, _)| carried.0 == player)
+        .for_each(|(_, name, _, _)| {
             draw_batch.print(
                 Point::new(3, y),
                 format!("{} : {}", y-2, &name.0)
